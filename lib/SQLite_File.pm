@@ -145,7 +145,7 @@ LICENSE file included with this module.
 package SQLite_File;
 use strict;
 use warnings;
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use vars qw( $AUTOLOAD ) ;
 
@@ -884,16 +884,16 @@ sub _store_value_filter {
     &{$self->{_store_value_filter}};
 };
 
-=head2 Attribute accessors
+=head1 Attribute Accessors
 
-=head2 file
+=head2 file()
 
  Title   : file
- Usage   : $obj->file($newval)
+ Usage   : $db->file()
  Function: filename for the SQLite db
  Example : 
  Returns : value of file (a scalar)
- Args    : on set, new value (a scalar or undef, optional)
+ Args    : 
 
 =cut
 
@@ -904,14 +904,14 @@ sub file {
     return $self->{'file'};
 }
 
-=head2 _fh
+=head2 _fh()
 
  Title   : _fh
- Usage   : $obj->_fh($newval)
+ Usage   : $db->_fh()
  Function: holds the temp file handle
  Example : 
  Returns : value of _fh (a scalar)
- Args    : on set, new value (a scalar or undef, optional)
+ Args    : 
 
 =cut
 
@@ -922,14 +922,13 @@ sub _fh {
     return $self->{'_fh'};
 }
 
-=head2 keep
+=head2 keep()
 
  Title   : keep
- Usage   : $obj->keep($newval)
+ Usage   : $db->keep()
  Function: flag allows preservation of db file when set
- Example : 
  Returns : value of keep (a scalar)
- Args    : on set, new value (a scalar or undef, optional)
+ Args    : 
 
 =cut
 
@@ -943,7 +942,7 @@ sub keep {
 =head2 ref()
 
  Title   : ref
- Usage   : $obj->ref
+ Usage   : $db->ref
  Function: HASH or ARRAY? Find out.
  Returns : scalar string : 'HASH' or 'ARRAY'
  Args    : none
@@ -956,13 +955,12 @@ sub ref {
     return $self->{ref};
 }
 
-=head2 index
+=head2 index()
 
  Title   : index
- Usage   : $obj->index($newval)
- Function: access the index type structure ($DB_BTREE, $DB_HASH, $DB_RECNO)
-           that initialized this instance
- Example : 
+ Usage   : $db->index()
+ Function: access the index type structure ($DB_BTREE, $DB_HASH, 
+           $DB_RECNO) that initialized this instance
  Returns : value of index (a hashref)
  Args    : 
 
@@ -973,16 +971,16 @@ sub index {
     return $self->{'index'};
 }
 
-=head2 _keys
+# =head2 _keys
 
- Title   : _keys
- Usage   : internal
- Function: points to a hash to make iterating easy and fun
- Example : 
- Returns : value of _keys (a hashref)
- Args    : on set, an arrayref of scalar keys
+#  Title   : _keys
+#  Usage   : internal
+#  Function: points to a hash to make iterating easy and fun
+#  Example : 
+#  Returns : value of _keys (a hashref)
+#  Args    : on set, an arrayref of scalar keys
 
-=cut
+# =cut
 
 sub _keys {
     my $self = shift;
@@ -995,21 +993,22 @@ sub _keys {
     return each %{$self->{'_keys'}};
 }
 
-=head2 BDB API Emulation: random access
+=head1 BDB API Emulation : random access
 
 =head2 get()
 
  Title   : get
- Usage   : $X->get($key, $value, $flags)
- Function: as in DB_File
- Returns : 
- Args    : 
+ Usage   : $db->get($key, $value)
+ Function: Get value associated with key
+ Returns : 0 on success, 1 on fail; 
+           value in $value
+ Args    : as in DB_File
 
 =cut
 
 sub get {
     my $self = shift;
-    my ($key, $value, $flags) = @_;
+    my ($key, $value) = @_;
     return unless $self->dbh;
     $_[1] = ($self->ref eq 'ARRAY' ? $self->FETCH(${$self->SEQIDX}[$key]) : $self->FETCH($key));
     return 0 if defined $_[1];
@@ -1019,10 +1018,13 @@ sub get {
 =head2 put()
 
  Title   : put
- Usage   : $X->put($key, $value, $flags)
- Function: as in DB_File
- Returns : 
- Args    : 
+ Usage   : $db->put($key, $value, $flags)
+ Function: Replace a key's value, or
+           put a key-value pair
+ Returns : 0 on success, 1 on fail;
+           value in $value
+           key in $key if $flags == R_CURSOR
+ Args    : as in DB_File
 
 =cut
 
@@ -1148,10 +1150,10 @@ sub put {
 =head2 del()
 
  Title   : del
- Usage   : 
- Function: as in DB_file
- Returns : 
- Args    : 
+ Usage   : $db->del($key)
+ Function: delete key-value pairs corresponding to $key
+ Returns : 0 on success, 1 on fail
+ Args    : as in DB_File
 
 =cut
 
@@ -1184,15 +1186,19 @@ sub del {
     return 1;
 }
 
-=head2 BDB API Emulation : sequential access
+=head1 BDB API Emulation : sequential access
 
 =head2 seq()
 
  Title   : seq
- Usage   : 
- Function: as in DB_File
- Returns : 
- Args    : 
+ Usage   : $db->seq($key, $value, $flags)
+ Function: retrieve key-value pairs sequentially,
+           according to $flags, with partial matching
+           on $key; see DB_File
+ Returns : 0 on success, 1 on fail;
+           key in $key,
+           value in $value
+ Args    : as in DB_File
 
 =cut
 
@@ -1246,26 +1252,25 @@ sub seq {
 =head2 sync()
 
  Title   : sync
- Usage   : 
+ Usage   : $db->sync
  Function: stub for BDB sync 
  Returns : 0
- Args    : 
+ Args    : none
 
 =cut
 
 sub sync { !shift->commit };
 
-=head2 BDB API Emulation: dup
+=head1 BDB API Emulation : C<dup>
 
 =head2 dup
 
  Title   : dup
- Usage   : $obj->dup($newval)
- Function: flag to indicate whether duplicate keys are handled
-           (compare R_DUP of DB_File)
- Example : 
- Returns : value of dup (a scalar)
- Args    : on set, new value (a scalar or undef, optional)
+ Usage   : $db->dup()
+ Function: Get/set flag indicating whether duplicate keys
+           are preserved
+ Returns : boolean
+ Args    : [optional] on set, new value (a scalar or undef, optional)
 
 =cut
 
@@ -1278,27 +1283,29 @@ sub dup {
 =head2 get_dup()
 
  Title   : get_dup
- Usage   : 
- Function: as in DB_File
- Returns : 
- Args    : 
+ Usage   : $db->get_dup($key, $want_hash)
+ Function: retrieve all records associated with a key
+ Returns : scalar context: scalar number of records
+           array context, !$want_hash: array of values
+           array context, $want_hash: hash of value-count pairs
+ Args    : as in DB_File
 
 =cut
 
 sub get_dup {
     my $self = shift;
-    my ($key, $aa) = @_;
+    my ($key, $want_hash) = @_;
     return unless $self->dbh;
     $self->commit;
     unless ($self->dup) {
-	$self->warn("DB not created in dup context; ignoring");
+	carp("DB not created in dup context; ignoring");
 	return;
     }
     $self->get_sth->execute($key);
     my $ret = $self->get_sth->fetchall_arrayref;
     return scalar @$ret unless wantarray;
     my @ret = map {$_->[0]} @$ret;
-    if (!$aa) {
+    if (!$want_hash) {
 	return @ret;
     }
     else {
@@ -1311,11 +1318,13 @@ sub get_dup {
 =head2 find_dup()
 
  Title   : find_dup
- Usage   : 
- Function: as in DB_File
- Returns : 
- Args    : 
- Note    : no cursor functionality
+ Usage   : $db->find_dup($key, $value)
+ Function: set the cursor to an instance of 
+           the $key-$value pair, if one 
+           exists
+ Returns : 0 on success, 1 on fail
+ Args    : as in DB_File
+
 =cut
 
 sub find_dup {
@@ -1324,22 +1333,25 @@ sub find_dup {
     return unless $self->dbh;
     $self->commit;
     unless ($self->dup) {
-	$self->warn("DB not created in dup context; ignoring");
+	carp("DB not created in dup context; ignoring");
 	return;
     }
-    $self->get_sth->execute($key);
-    my $ret = $self->get_sth->fetchall_arrayref;
-    return 0 if grep(/^$value$/, map {$_->[0]} @$ret);
-    return;
+    $self->sel_dup_sth->bind_param(1,$key);
+    $self->sel_dup_sth->bind_param(2,$value,SQL_BLOB);
+    $self->sel_dup_sth->execute;
+    my $ret = $self->sel_dup_sth->fetch;
+    return 1 unless $ret;
+    ${$self->CURSOR} = _find_idx($ret->[0], $self->SEQIDX);
+    return 0
 }
 
 =head2 del_dup()
 
  Title   : del_dup
- Usage   : 
- Function: as in DB_File
- Returns : 
- Args    : 
+ Usage   : $db->del_dup($key, $value)
+ Function: delete all instances of the $key-$value pair
+ Returns : 0 on success, 1 on fail
+ Args    : as in DB_File
 
 =cut
 
@@ -1349,7 +1361,7 @@ sub del_dup {
     my $ret;
     return unless $self->dbh;
     unless ($self->dup) {
-	$self->warn("DB not created in dup context; ignoring");
+	carp("DB not created in dup context; ignoring");
 	return;
     }
     $self->sel_dup_sth->bind_param(1, $key);
@@ -1375,18 +1387,18 @@ sub del_dup {
     }
 }
 
-=head2 BDB API Emulation : internals
+# =head2 BDB API Emulation : internals
 
-=head2 partial_match()
+# =head2 partial_match()
 
- Title   : partial_match
- Usage   : 
- Function: emulate the partial matching of DB_File::seq() with
-           R_CURSOR flag
- Returns : 
- Args    : $key
+#  Title   : partial_match
+#  Usage   : 
+#  Function: emulate the partial matching of DB_File::seq() with
+#            R_CURSOR flag
+#  Returns : 
+#  Args    : $key
 
-=cut
+# =cut
 
 sub partial_match {
     my $self = shift;
@@ -1412,16 +1424,16 @@ sub partial_match {
     return 1;
 }
 
-=head2 SQL interface : internal
+=head1 SQL Interface
 
-=head2 dbh
+=head2 dbh()
 
  Title   : dbh
- Usage   : $obj->dbh($newval)
- Function: database handle
+ Usage   : $db->dbh()
+ Function: Get/set DBI database handle
  Example : 
- Returns : value of dbh (a scalar)
- Args    : on set, new value (a scalar or undef, optional)
+ Returns : DBI database handle
+ Args    : 
 
 =cut
 
@@ -1432,17 +1444,15 @@ sub dbh {
     return $self->{'dbh'};
 }
 
-
-
 =head2 sth()
 
  Title   : sth
  Usage   : $obj->sth($stmt_descriptor)
- Function: statement handle generator
+ Function: DBI statement handle generator
  Returns : a prepared DBI statement handle
  Args    : scalar string (statement descriptor)
- Note    : calls such as $obj->put_sth are autoloaded through
-           this method
+ Note    : Calls such as $db->put_sth are autoloaded through
+           this method; please see source for valid descriptors
 =cut
 
 sub sth {
@@ -1480,11 +1490,11 @@ sub AUTOLOAD {
 =head2 commit()
 
  Title   : commit
- Usage   : 
+ Usage   : $db->commit()
  Function: commit transactions
  Returns : 
  Args    : commit(1) forces, commit() commits when
-           number of pending transactions > $MAXPEND
+           number of pending transactions > $SQLite::MAXPEND
 
 =cut
 
@@ -1502,10 +1512,10 @@ sub commit {
 =head2 pending()
 
  Title   : pending
- Usage   : $obj->pending
- Function: count of pending (uncommitted) transactions
+ Usage   : $db->pending
+ Function: Get count of pending (uncommitted) transactions
  Returns : scalar int
- Args    : none (rdonly)
+ Args    : none
 
 =cut
 
@@ -1516,9 +1526,9 @@ sub pending {
 =head2 trace()
 
  Title   : trace
- Usage   : 
+ Usage   : $db->trace($TraceLevel)
  Function: invoke the DBI trace logging service
- Returns : 
+ Returns : the trace level
  Args    : scalar int trace level
 
 =cut
@@ -1533,34 +1543,34 @@ sub trace {
     return $level;
 }
 
-=head2 Private index methods : Internal
+# =head1 Private index methods : Internal
 
-=head2 _index_is_stale()
+# =head2 _index_is_stale()
 
- Title   : _index_is_stale
- Usage   : 
- Function: predicate indicating whether a _reindex has been
-           performed since adding or updating the db
- Returns : 
- Args    : none
+#  Title   : _index_is_stale
+#  Usage   : 
+#  Function: predicate indicating whether a _reindex has been
+#            performed since adding or updating the db
+#  Returns : 
+#  Args    : none
 
-=cut
+# =cut
 
 sub _index_is_stale {
     my $self = shift;
     return $self->{_stale};
 }
 
-=head2 _index()
+# =head2 _index()
 
- Title   : _index
- Usage   : 
- Function: initial the internal index array (maps sequential 
-           coordinates to db primary key integers)
- Returns : 1 on success
- Args    : none
+#  Title   : _index
+#  Usage   : 
+#  Function: initial the internal index array (maps sequential 
+#            coordinates to db primary key integers)
+#  Returns : 1 on success
+#  Args    : none
 
-=cut
+# =cut
 
 sub _index {
     my $self = shift;
@@ -1578,16 +1588,16 @@ sub _index {
     return 1;
 }
 
-=head2 _reindex()
+# =head2 _reindex()
 
- Title   : _reindex
- Usage   : 
- Function: reorder SEQIDX to reflect BTREE ordering,
-           preserving cursor
- Returns : true on success
- Args    : none
+#  Title   : _reindex
+#  Usage   : 
+#  Function: reorder SEQIDX to reflect BTREE ordering,
+#            preserving cursor
+#  Returns : true on success
+#  Args    : none
 
-=cut
+# =cut
 
 sub _reindex {
     my $self = shift;
@@ -1613,16 +1623,16 @@ sub _reindex {
     return 1;
 }
 
-=head2 _find_idx()
+# =head2 _find_idx()
 
- Title   : _find_idx
- Usage   : 
- Function: search of array for index corresponding
-           to a given value
- Returns : scalar int (target array index)
- Args    : scalar int (target value), array ref (index array)
+#  Title   : _find_idx
+#  Usage   : 
+#  Function: search of array for index corresponding
+#            to a given value
+#  Returns : scalar int (target array index)
+#  Args    : scalar int (target value), array ref (index array)
 
-=cut
+# =cut
 
 sub _find_idx {
     my ($pk, $seqidx) = @_;
@@ -1635,16 +1645,16 @@ sub _find_idx {
     return (defined $$seqidx[$i] and $pk == $$seqidx[$i] ? $i : undef);
 }
 
-=head2 _wring_SEQIDX()
+# =head2 _wring_SEQIDX()
 
- Title   : _wring_SEQIDX
- Usage   : 
- Function: remove undef'ed values from SEQIDX,
-           preserving cursor
- Returns : 
- Args    : none
+#  Title   : _wring_SEQIDX
+#  Usage   : 
+#  Function: remove undef'ed values from SEQIDX,
+#            preserving cursor
+#  Returns : 
+#  Args    : none
 
-=cut
+# =cut
 
 sub _wring_SEQIDX {
     my $self = shift;
@@ -1666,15 +1676,15 @@ sub _wring_SEQIDX {
     return;
 }
 
-=head2 _get_pk()
+# =head2 _get_pk()
 
- Title   : _get_pk
- Usage   : 
- Function: provide an unused primary key integer for seq access
- Returns : scalar int
- Args    : none
+#  Title   : _get_pk
+#  Usage   : 
+#  Function: provide an unused primary key integer for seq access
+#  Returns : scalar int
+#  Args    : none
 
-=cut
+# =cut
 
 sub _get_pk {
     my $self = shift;
@@ -1682,16 +1692,16 @@ sub _get_pk {
     return ++$AUTOPK;
 }
 
-=head2 _last_pk
+# =head2 _last_pk
 
- Title   : _last_pk
- Usage   : $obj->_last_pk($newval)
- Function: the primary key integer returned on the last FETCH
- Example : 
- Returns : value of _last_pk (a scalar)
- Args    : on set, new value (a scalar or undef, optional)
+#  Title   : _last_pk
+#  Usage   : $obj->_last_pk($newval)
+#  Function: the primary key integer returned on the last FETCH
+#  Example : 
+#  Returns : value of _last_pk (a scalar)
+#  Args    : on set, new value (a scalar or undef, optional)
 
-=cut
+# =cut
 
 sub _last_pk {
     my $self = shift;
@@ -1700,9 +1710,9 @@ sub _last_pk {
     return $self->{'_last_pk'};
 }
 
-=head2 Array object helper functions : internal
+# =head2 Array object helper functions : internal
 
-=cut
+# =cut
 
 sub len {
     scalar @{shift->SEQIDX};
@@ -1736,7 +1746,7 @@ sub rm_idx {
     my $self = shift;
     my $index = shift;
     unless (delete ${$self->SEQIDX}[$index]) {
-	$self->warn("Element $index did not exist");
+	warn("Element $index did not exist");
     }
 }
 

@@ -3,15 +3,15 @@
 # convert to CPAN 
 BEGIN {
     use lib '../lib';
-    use Test::More tests => 59;
+    use Test::More tests => 62;
     @AnyDBM_File::ISA = qw( SQLite_File );
     use_ok('DBD::SQLite');
     use_ok('AnyDBM_File');
 }
 
-use vars qw( $DB_HASH $DB_TREE $DB_RECNO &R_DUP &O_CREAT &O_RDWR &O_RDONLY);
+use vars qw( $DB_HASH $DB_TREE $DB_RECNO &R_DUP &R_CURSOR &O_CREAT &O_RDWR &O_RDONLY);
 use AnyDBM_File::Importer qw(:bdb);
-
+my ($key, $value);
 my %db;
 my $flags = O_CREAT | O_RDWR;
 ok tie( %db, 'AnyDBM_File', 'my.db', $flags, 0666, $DB_HASH, 0), "tie";
@@ -50,29 +50,36 @@ ok ( unlink('my.db'), "now you don't");
 
 # test dup functions
 $DB_BTREE->{flags} = R_DUP;
-ok tie( %db, 'AnyDBM_File', undef, $flags, 0666, $DB_BTREE), "DB_BTREE";
+ok $db = tie( %db, 'AnyDBM_File', undef, $flags, 0666, $DB_BTREE), "DB_BTREE";
 
 ok (@db{('A', 'B', 'B', 'B', 'C')} = (1, 2, 2, 3, 4), "set dup hash");
 
-is ((tied %db)->find_dup('B','3'), 0, "find_dup");
-ok my $d = (tied %db)->get_dup('B');
+$key = 'B';
+$value = 3;
+is ($db->find_dup($key,$value), 0, "find_dup");
+
+ok (!$db->seq($key, $value, R_CURSOR), "seq checks cursor");
+is ($key, 'B', "find_dup sets cursor (key)");
+is ($value, '2', "find_dup sets cursor (value)");
+ok my $d = $db->get_dup('B');
 is($d, 3, "get_dup (scalar)");
-ok my @d = (tied %db)->get_dup('B');
+ok my @d = $db->get_dup('B');
 is(@d, 3, "get_dup (array)");
-ok my %d = (tied %db)->get_dup('B',1);
+ok my %d = $db->get_dup('B',1);
 is($d{'2'},2,"get_dup (hash 1)");
 is($d{'3'},1,"get_dup (hash 2)");
+undef $db;
 untie %db;
 
 # test user-supplied collation via $DB_BTREE->{'compare'}
 $DB_BTREE->{'compare'} = sub { my ($a, $b) = @_; -( $a cmp $b ) };
 ok $db = tie( %db, 'AnyDBM_File', undef, $flags, 0666, $DB_BTREE), "tie w/reverse collation";
 @db{qw( a b c d e f )} = (1,2,3,4,5,6);
-my ($key, $val, @rev);
-$db->seq($key, $val, R_FIRST);
-push @rev, $val;
-while (!$db->seq($key, $val, R_NEXT)) {
-    push @rev, $val;
+my @rev;
+$db->seq($key, $value, R_FIRST);
+push @rev, $value;
+while (!$db->seq($key, $value, R_NEXT)) {
+    push @rev, $value;
 }
 is_deeply(\@rev, [6,5,4,3,2,1], "reverse collation correct");
 undef $db;
